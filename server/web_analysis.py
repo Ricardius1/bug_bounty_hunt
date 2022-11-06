@@ -181,7 +181,3 @@ class WebAnalysis:
             self.sort_links()
             start_num = stop_num
             stop_num = len(self.links)
-
-
-    def add_new_stuff(self):
-        pass
