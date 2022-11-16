@@ -50,19 +50,7 @@ class WebAnalysis:
             params.append(inner_params)
         return params
 
-    def __get_subdomain(self, link):
-        subdomain = ""
-        if link.find("/") == 6:
-            start = 8
-        else:
-            start = 7
-        if link.count(".") >= 2:
-            subdomain = link[start:link.find(".")]
-        return subdomain
     # Delete duplicates in the links list
-    # TODO add sorting of subdomains (london. , berlin.) because they will be the same.
-    #  Use subdomains.txt file which has all useful subdomains. Even if queries are same but subdomains
-    #  are different leave both links
     def sort_links(self):
         # Set and list for storing repeated links
         rep_path = set()
@@ -122,6 +110,7 @@ class WebAnalysis:
             WebAnalysis.links_w_queries.pop(i)
 
     # Looks for links on the html page and sorts them
+    # TODO decide if we need to add links_w_attr in links
     def find_links(self, link):
         self.driver.get(link)
         # Looks for all link tags(<a>) on a page
@@ -154,9 +143,6 @@ class WebAnalysis:
             proxy_list.append(elem)
         return proxy_list
 
-    def change_proxy_server(self):
-        pass
-
     # TODO input and button
     # Get input fields on the page
     def get_input_fields(self, driver_object):
@@ -182,38 +168,20 @@ class WebAnalysis:
             button_list.append(elem)
         return button_list
 
-    """
-    WebCrawler problem
-    
-    iteration --> find_links (will give links to both lists)
-    
-    sorting (has to be sorting of both lists)
-    
-    for example it will return 100 links in links and 15 in links_w_queries
-    
-    iteration again over links --> problem (same links will be used again because if they are unique they will remain)
-    Possible solution --> indexing elements in the list and not iterating over links that were in the list before
-    """
-
     # TODO add sorting, using proxy, level input
     # Main function of WebAnalysis
     def web_crawler(self):
-        # Webcrawler for links
-        start_point = 0
+        self.links.append(self.__home_url)
+        start_num = 0
+        stop_num = 1
         for i in range(3):
-            for index, link in enumerate(WebAnalysis.links[start_point:]):
+            for link in self.links[start_num:stop_num]:
                 self.find_links(link)
-            start_point = len(WebAnalysis.links)
             self.sort_links_w_queries()
             self.sort_links()
-
-        # Webcrawler for links_w_queries
-        start_point = 0
-        for i in range(3):
-            for index, link in enumerate(WebAnalysis.links_w_queries[start_point:]):
-                self.find_links(link)
-            start_point = len(WebAnalysis.links)
-            self.sort_links_w_queries()
-            self.sort_links()
+            start_num = stop_num
+            stop_num = len(self.links)
 
 
+    def add_new_stuff(self):
+        pass
