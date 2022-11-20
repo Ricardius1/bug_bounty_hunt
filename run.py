@@ -9,6 +9,7 @@ if __name__ == '__main__':
     server.connect((ip, port))
 
     url = input("Give a url: ")
+    level = input("Please select level of complexity(1-5) where 1 is low and 5 is high: ")
 
     if '"' in url or "'" in url:
         print("Invalid characters specified")

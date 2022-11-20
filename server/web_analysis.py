@@ -1,9 +1,17 @@
+import server.constants as const
+import random
+
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.proxy import Proxy, ProxyType
 from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 
-# File with functions relating to getting data from a page
-
+"""========================================================================================================="""
+"""========================================================================================================="""
+"""========================================================================================================="""
+"""DATA SEARCH, SORTING, PROXY, CRAWLING"""
 
 class WebAnalysis:
     links = []
@@ -12,20 +20,56 @@ class WebAnalysis:
     fields_input = []
 
     # Constructor with input properties + initialisation of a web driver
-    def __init__(self, home_url):
+    def __init__(self):
+        self.__home_url = ""
+        self.__domain = ""
+        self.proxies = []
+
+        # Assigning options to the webdriver
+        self.__options = Options()
+        self.__options.add_argument("--headless")
+        self.__options.add_argument("--window-size=1920x1080")
+        self.__capabilities = webdriver.DesiredCapabilities.CHROME
+        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=self.__options,
+                                       desired_capabilities=self.__capabilities)
+
+    """======================================================================================================"""
+    """SETTING THE USED DATA"""
+
+    def set_home_url(self, home_url):
         self.__home_url = home_url
-        options = Options()
-        options.add_argument("--headless")
-        options.add_argument("--window-size=1920x1080")
-        # options.add_argument('--proxy-server=%s' % PROXY)
-        # Sometimes needs to be updated by installing a new version into this folder
-        self.driver = webdriver.Chrome("/usr/local/bin/chromedriver", options=options)
-        # Get the domain of the website
+
+    # Get the domain of the website
+    def set_domain(self):
         if self.__home_url[-1] != "/":
             self.__home_url += "/"
         WebAnalysis.links.append(self.__home_url)
         slashes_list = [i for i, ltr in enumerate(self.__home_url) if ltr == "/"]
         self.__domain = self.__home_url[slashes_list[1] + 1:slashes_list[2]]
+
+    """SECTION END"""
+    """------------------------------------------------------------------------------------------------------"""
+
+    """======================================================================================================"""
+    """FINDING URLS ON THE WEBSITE"""
+
+    def find_links(self, link):
+        self.driver.get(link)
+        # Looks for all link tags(<a>) on a page
+        elements = self.driver.find_elements(By.TAG_NAME, 'a')
+        for elem in elements:
+            # Exports href attribute from a link tag
+            href = elem.get_attribute('href')
+            # Checks whether there is a link, if it is not a local link, if it's on the same domain or subdomain
+            if href is not None and "#" not in href and self.__check_domain(href) is True:
+                if href[-1] != "/":
+                    href += "/"
+                # Looks for links with attributes and adds them to the lists
+                if "?" in href:
+                    WebAnalysis.links_w_queries.append(href)
+                else:
+                    WebAnalysis.links.append(href)
+        self.driver.close()
 
     # Checks if pages are from this domain
     def __check_domain(self, href):
@@ -36,19 +80,11 @@ class WebAnalysis:
             return False
         return False
 
-    # Extracts query keys for the links with attributes
-    def __get_query_keys(self):
-        params = []
-        for link in WebAnalysis.links_w_queries:
-            _, query = link.split("?")
-            fields = query.split("&")
-            inner_params = set()
+    """SECTION END"""
+    """------------------------------------------------------------------------------------------------------"""
 
-            for field in fields:
-                key, _ = field.split("=")
-                inner_params.add(key)
-            params.append(inner_params)
-        return params
+    """======================================================================================================"""
+    """SORTING OF URLS"""
 
     # Delete duplicates in the links list
     def sort_links(self):
@@ -71,7 +107,6 @@ class WebAnalysis:
         for i in reversed(rep_urls):
             WebAnalysis.links.pop(i)
 
-    # TODO change sorting to take into account the rest of the url and not just query
     def sort_links_w_queries(self):
         attr_list = self.__get_query_keys()
         result = set()
@@ -99,7 +134,6 @@ class WebAnalysis:
         for index, attr in enumerate(list_attr):
             curr_set_len = len(attr)
             # Check if current link queries already in the big_set and if True delete the link
-            # if big_set.difference(attr) != set():
             if len(attr.intersection(big_set)) == curr_set_len:
                 rep_urls.append(index)
             else:
@@ -109,39 +143,86 @@ class WebAnalysis:
         for i in reversed(list(rep_urls)):
             WebAnalysis.links_w_queries.pop(i)
 
-    # Looks for links on the html page and sorts them
-    # TODO decide if we need to add links_w_attr in links
-    def find_links(self, link):
-        self.driver.get(link)
-        # Looks for all link tags(<a>) on a page
-        elements = self.driver.find_elements(By.TAG_NAME, 'a')
-        for elem in elements:
-            # Exports href attribute from a link tag
-            href = elem.get_attribute('href')
-            # Checks whether there is a link, if it is not a local link, if it's on the same domain or subdomain
-            if href is not None and "#" not in href and self.__check_domain(href) is True:
-                if href[-1] != "/":
-                    href += "/"
-                # Looks for links with attributes and adds them to the lists
-                if "?" in href:
-                    WebAnalysis.links_w_queries.append(href)
-                else:
-                    WebAnalysis.links.append(href)
+    # Extracts query keys for the links with attributes
+    def __get_query_keys(self):
+        params = []
+        for link in WebAnalysis.links_w_queries:
+            _, query = link.split("?")
+            fields = query.split("&")
+            inner_params = set()
+
+            for field in fields:
+                key, _ = field.split("=")
+                inner_params.add(key)
+            params.append(inner_params)
+        return params
+
+    """SECTION END"""
+    """------------------------------------------------------------------------------------------------------"""
+
+    """======================================================================================================"""
+    """PROXY SERVERS SETTERS AND GETTERS"""
+
+    # Get proxy list through API
+    def get_proxy_servers(self):
+        proxy_list = []
+        # Get proxies through API
+        self.driver.get("https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all")
+        elements = self.driver.find_element(By.TAG_NAME, "pre").text
+        for elem in elements.splitlines():
+            proxy_list.append(elem)
+
+        # Get proxies through webscraping
+        self.driver.get("https://free-proxy-list.net")
+        elements = self.driver.find_elements(By.TAG_NAME, "tr")
+        for row in elements[1:]:
+            arguments = row.text.split(" ")
+            if len(arguments) == 10:
+                if arguments[3] in const.COUNTRIES:
+                    proxy_list.append(f"{arguments[0]}:{arguments[1]}")
+            else:
+                if f"{arguments[3]} {arguments[4]}" in const.COUNTRIES:
+                    proxy_list.append(f"{arguments[0]}:{arguments[1]}")
+        self.proxies = proxy_list
+        # self.driver.close()
+
+    # Set a proxy server
+    def switch_proxy(self):
+        proxy = Proxy()
+        proxy_ip_port = random.choice(self.proxies)
+        proxy.proxy_type = ProxyType.MANUAL
+        proxy.http_proxy = proxy_ip_port
+        proxy.ssl_proxy = proxy_ip_port
+        proxy.add_to_capabilities(self.__capabilities)
+        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=self.__options,
+                                       desired_capabilities=self.__capabilities)
+
+    """SECTION END"""
+    """------------------------------------------------------------------------------------------------------"""
+
+    """======================================================================================================"""
+    """CRAWLING AND GETTING BUTTONS AND INPUT FIELDS"""
+    # Main function of WebAnalysis
+    def web_crawler(self, level):
+        self.links.append(self.__home_url)
+        start_num = 0
+        stop_num = 1
+        self.get_proxy_servers()
+        for i in range(level):
+            # List of all urls
+            all_links = (WebAnalysis.links + WebAnalysis.links_w_queries)
+            for link in all_links[start_num:stop_num]:
+                self.switch_proxy()
+                self.find_links(link)
+            self.sort_links_w_queries()
+            self.sort_links()
+            start_num = stop_num
+            stop_num = len(self.links)
 
     # Extract cookies from the page
     def get_cookies(self):
         self.driver.get(self.__home_url)
         return self.driver.get_cookies()
-
-    # Get proxy list API
-    def get_proxy_list(self):
-        proxy_list = []
-        driver = self.driver
-        driver.get("https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all")
-        elements = driver.find_element(By.TAG_NAME, "pre").text
-        for elem in elements.splitlines():
-            proxy_list.append(elem)
-        return proxy_list
 
     # TODO input and button
     # Get input fields on the page
@@ -168,20 +249,7 @@ class WebAnalysis:
             button_list.append(elem)
         return button_list
 
-    # TODO add sorting, using proxy, level input
-    # Main function of WebAnalysis
-    def web_crawler(self):
-        self.links.append(self.__home_url)
-        start_num = 0
-        stop_num = 1
-        for i in range(3):
-            for link in self.links[start_num:stop_num]:
-                self.find_links(link)
-            self.sort_links_w_queries()
-            self.sort_links()
-            start_num = stop_num
-            stop_num = len(self.links)
+    """SECTION END"""
+    """------------------------------------------------------------------------------------------------------"""
 
-
-    def add_new_stuff(self):
-        pass
+    """======================================================================================================"""
