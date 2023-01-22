@@ -1,5 +1,8 @@
-import server.constants as const
+import time
+
+import constants as const
 import random
+import requests
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -12,6 +15,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 """========================================================================================================="""
 """========================================================================================================="""
 """DATA SEARCH, SORTING, PROXY, CRAWLING"""
+
 
 class WebAnalysis:
     links = []
@@ -84,7 +88,7 @@ class WebAnalysis:
     """------------------------------------------------------------------------------------------------------"""
 
     """======================================================================================================"""
-    """SORTING OF URLS"""
+    """SORTING OF THE URLS AND GETTING QUERY KEYS"""
 
     # Delete duplicates in the links list
     def sort_links(self):
@@ -108,7 +112,7 @@ class WebAnalysis:
             WebAnalysis.links.pop(i)
 
     def sort_links_w_queries(self):
-        attr_list = self.__get_query_keys()
+        attr_list = self.__get_query_keys_iter()
         result = set()
         for index, attr in enumerate(attr_list[:-2]):
             curr_set_len = len(attr)
@@ -126,7 +130,7 @@ class WebAnalysis:
 
     # TODO works twice faster than v1 but in case [{1,2}, {1,2,3}] leaves both elements present
     def sort_links_w_queries_v2(self):
-        list_attr = self.__get_query_keys()
+        list_attr = self.__get_query_keys_iter()
         # list_attr = sorted(unsorted_list_attr, key=len)
         big_set = set()
         rep_urls = []
@@ -144,10 +148,10 @@ class WebAnalysis:
             WebAnalysis.links_w_queries.pop(i)
 
     # Extracts query keys for the links with attributes
-    def __get_query_keys(self):
+    def __get_query_keys_iter(self):
         params = []
-        for link in WebAnalysis.links_w_queries:
-            _, query = link.split("?")
+        for url in WebAnalysis.links_w_queries:
+            _, query = url.split("?")
             fields = query.split("&")
             inner_params = set()
 
@@ -156,6 +160,47 @@ class WebAnalysis:
                 inner_params.add(key)
             params.append(inner_params)
         return params
+
+    # Extracts query keys from one input link
+    def get_query_keys(self, url):
+        params = []
+        _, query = url.split("?")
+        fields = query.split("&")
+        inner_params = set()
+
+        for field in fields:
+            key, _ = field.split("=")
+            inner_params.add(key)
+        params.append(inner_params)
+        return params
+
+    def get_signs_list(self, url):
+        sign_list = [i for i, ltr in enumerate(url) if ltr in ["=", "&", "?"]]
+        return sign_list
+
+    def get_and_list(self, url):
+        and_list = [i for i, ltr in enumerate(url) if ltr == "&"]
+        and_list.append(-1)
+        return and_list
+
+    """SECTION END"""
+    """------------------------------------------------------------------------------------------------------"""
+
+    """======================================================================================================"""
+    """Creating payloads for different injections"""
+
+    # https://example.com/page?attr1=value1&attr2=value2
+
+    # Finds indices for value in the key:value pair
+    def argument_indices_extractor(self, url):
+        index = random.choice(self.get_and_list(url))
+        return index
+
+    # Creates payloads by using index of the random value in the key:value pair
+    def payload_create(self, url, payload):
+        index = self.argument_indices_extractor(url)
+        return f'{url[:index]}{payload}{url[index:]}'
+
 
     """SECTION END"""
     """------------------------------------------------------------------------------------------------------"""
@@ -201,7 +246,7 @@ class WebAnalysis:
     """------------------------------------------------------------------------------------------------------"""
 
     """======================================================================================================"""
-    """CRAWLING AND GETTING BUTTONS AND INPUT FIELDS"""
+    """CRAWLING AND GETTING BUTTONS AND INPUT FIELDS """
     # Main function of WebAnalysis
     def web_crawler(self, level):
         self.links.append(self.__home_url)
@@ -232,10 +277,6 @@ class WebAnalysis:
         for elem in elements:
             input_list.append(elem)
         return input_list
-        # for link in self.links:
-        #     self.driver.get(link)
-        #     elem = self.driver.find_element(By.TAG_NAME, "input")
-        #     return elem
 
     # Get button fields on the page
     def get_button_fields(self, driver_object):
@@ -253,3 +294,8 @@ class WebAnalysis:
     """------------------------------------------------------------------------------------------------------"""
 
     """======================================================================================================"""
+    """======================================================================================================"""
+    """======================================================================================================"""
+
+
+
