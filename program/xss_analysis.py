@@ -1,4 +1,4 @@
-from server.web_analysis import WebAnalysis
+from program.web_analysis import WebAnalysis
 
 
 """========================================================================================================="""

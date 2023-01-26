@@ -1,6 +1,6 @@
-import constants as const
+import program.constants as const
 import random
-import web_analysis as web_object
+import program.web_analysis as web_object
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -33,13 +33,13 @@ class ProxyOperations:
     # Get proxy list through API
     def get_proxy_servers(self):
         # Get proxies through API
-        self.driver.get(const.proxy1)
+        self.driver.get(const.PROXY1)
         elements = self.driver.find_element(By.TAG_NAME, "pre").text
         for elem in elements.splitlines():
             self.proxies.append(elem)
 
         # Get proxies through webscraping
-        self.driver.get(const.proxy2)
+        self.driver.get(const.PROXY2)
         elements = self.driver.find_elements(By.TAG_NAME, "tr")
         for row in elements[1:]:
             arguments = row.text.split(" ")
@@ -51,7 +51,7 @@ class ProxyOperations:
                     self.proxies.append(f"{arguments[0]}:{arguments[1]}")
         # self.driver.close()
 
-    # Set a proxy server
+    # Set a proxy program
     def switch_proxy_selenium(self):
         proxy = Proxy()
         proxy_ip_port = random.choice(self.proxies)

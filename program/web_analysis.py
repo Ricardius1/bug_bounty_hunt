@@ -1,6 +1,6 @@
 import time
 
-import constants as const
+import program.constants as const
 import random
 import requests
 
@@ -231,7 +231,7 @@ class WebAnalysis:
         self.proxies = proxy_list
         # self.driver.close()
 
-    # Set a proxy server
+    # Set a proxy program
     def switch_proxy(self):
         proxy = Proxy()
         proxy_ip_port = random.choice(self.proxies)
