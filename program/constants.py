@@ -1,4 +1,4 @@
-import socket
+chromedriver_location = "/usr/local/bin/chromedriver"
 
 """proxies.py"""
 
@@ -7,14 +7,22 @@ COUNTRIES = {"United States", "Germany", "United Kingdom", "France", "Italy", "S
              "Hungary", "Austria", "Switzerland", "Bulgaria", "Denmark", "Finland", "Slovakia", "Norway",
              "Ireland", "Croatia", "Moldova", "Lithuania", "Slovenia", "Latvia", "Estonia", "Iceland"}
 
-PROXY1 = "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all"
+PROXY1 = "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=DE,GB,AL,AD,AM,AT,BY,BE,BA,BG,CH,CY,CZ,DE,DK,ES,FR,GR,HU,HR,IE,IS,IT,LU,NO,NL,PT&ssl=all&anonymity=all"
 PROXY2 = "https://free-proxy-list.net"
 
 
 """sql_analysis.py"""
 
+USER_AGENTS = [
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36"
+]
+
+sql_payload_wordlist = "../program/wordlists/sql_payloads/Intruder/detect/Generic_TimeBased.txt"
+
 STATUS_CODE_RANGE = range(200, 400)
-NUM_MEAN = 3
+NUM_MEAN = 5
 DELAY_TIME = 5
 NO_PROB = 1.4
 VERY_HIGH_PROB = 0.95
@@ -24,23 +32,18 @@ LOW_PROB = 0.5
 
 """server.py"""
 
-SERVER_IP = socket.gethostbyname(socket.gethostname())
-SERVER_PORT = 5050
-ADDR = (SERVER_IP, SERVER_PORT)
-HEADER = 64
-FORMAT = "utf-8"
-DISCONNECT_MESSAGE = "!exit"
+
 
 """extra_functions.py"""
 
-font_black = "30"
-font_red = "31"
-font_green = "32"
-font_yellow = "33"
-font_blue = "34"
-font_magenta = "35"
-font_cyan = "36"
-font_white = "37"
-font_default = "39"
+FONT_BLACK = "30"
+FONT_RED = "31"
+FONT_GREEN = "32"
+FONT_YELLOW = "33"
+FONT_BLUE = "34"
+FONT_MAGENTA = "35"
+FONT_CYAN = "36"
+FONT_WHITE = "37"
+FONT_DEFAULT = "39"
 
 # If you want to add background take 40 - black 41 - red

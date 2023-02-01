@@ -1,12 +1,8 @@
-import time
-
-import program.constants as const
 import random
-import requests
+from proxies import ProxyOperations
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.proxy import Proxy, ProxyType
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
@@ -18,21 +14,22 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 
 class WebAnalysis:
+    # TODO: remove WebAnalysis.links because they are not being used in the latest version of the program
     links = []
     links_w_queries = []
-    cookies = []
-    fields_input = []
 
     # Constructor with input properties + initialisation of a web driver
     def __init__(self):
         self.__home_url = ""
         self.__domain = ""
         self.proxies = []
+        self.proxy_object = ProxyOperations()
 
         # Assigning options to the webdriver
         self.__options = Options()
         self.__options.add_argument("--headless")
         self.__options.add_argument("--window-size=1920x1080")
+        self.__options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 13_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36")
         self.__capabilities = webdriver.DesiredCapabilities.CHROME
         self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=self.__options,
                                        desired_capabilities=self.__capabilities)
@@ -40,16 +37,19 @@ class WebAnalysis:
     """======================================================================================================"""
     """SETTING THE USED DATA"""
 
+    # Set the home url and the domain of the website
     def set_home_url(self, home_url):
         self.__home_url = home_url
 
-    # Get the domain of the website
-    def set_domain(self):
         if self.__home_url[-1] != "/":
             self.__home_url += "/"
-        WebAnalysis.links.append(self.__home_url)
+        WebAnalysis.links_w_queries.append(self.__home_url)
         slashes_list = [i for i, ltr in enumerate(self.__home_url) if ltr == "/"]
         self.__domain = self.__home_url[slashes_list[1] + 1:slashes_list[2]]
+
+    def set_query_url(self, home_url):
+        WebAnalysis.links_w_queries.append(home_url)
+        print("SERVER PT2")
 
     """SECTION END"""
     """------------------------------------------------------------------------------------------------------"""
@@ -199,48 +199,9 @@ class WebAnalysis:
     # Creates payloads by using index of the random value in the key:value pair
     def payload_create(self, url, payload):
         index = self.argument_indices_extractor(url)
+        if index == -1:
+            return f"{url[:-1]}{payload}"
         return f'{url[:index]}{payload}{url[index:]}'
-
-
-    """SECTION END"""
-    """------------------------------------------------------------------------------------------------------"""
-
-    """======================================================================================================"""
-    """PROXY SERVERS SETTERS AND GETTERS"""
-
-    # Get proxy list through API
-    def get_proxy_servers(self):
-        proxy_list = []
-        # Get proxies through API
-        self.driver.get("https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all")
-        elements = self.driver.find_element(By.TAG_NAME, "pre").text
-        for elem in elements.splitlines():
-            proxy_list.append(elem)
-
-        # Get proxies through webscraping
-        self.driver.get("https://free-proxy-list.net")
-        elements = self.driver.find_elements(By.TAG_NAME, "tr")
-        for row in elements[1:]:
-            arguments = row.text.split(" ")
-            if len(arguments) == 10:
-                if arguments[3] in const.COUNTRIES:
-                    proxy_list.append(f"{arguments[0]}:{arguments[1]}")
-            else:
-                if f"{arguments[3]} {arguments[4]}" in const.COUNTRIES:
-                    proxy_list.append(f"{arguments[0]}:{arguments[1]}")
-        self.proxies = proxy_list
-        # self.driver.close()
-
-    # Set a proxy program
-    def switch_proxy(self):
-        proxy = Proxy()
-        proxy_ip_port = random.choice(self.proxies)
-        proxy.proxy_type = ProxyType.MANUAL
-        proxy.http_proxy = proxy_ip_port
-        proxy.ssl_proxy = proxy_ip_port
-        proxy.add_to_capabilities(self.__capabilities)
-        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=self.__options,
-                                       desired_capabilities=self.__capabilities)
 
     """SECTION END"""
     """------------------------------------------------------------------------------------------------------"""
@@ -252,43 +213,43 @@ class WebAnalysis:
         self.links.append(self.__home_url)
         start_num = 0
         stop_num = 1
-        self.get_proxy_servers()
+        self.proxy_object.get_proxy_servers()
         for i in range(level):
             # List of all urls
             all_links = (WebAnalysis.links + WebAnalysis.links_w_queries)
             for link in all_links[start_num:stop_num]:
-                self.switch_proxy()
+                self.proxy_object.switch_proxy_selenium()
                 self.find_links(link)
             self.sort_links_w_queries()
             self.sort_links()
             start_num = stop_num
             stop_num = len(self.links)
 
-    # Extract cookies from the page
-    def get_cookies(self):
-        self.driver.get(self.__home_url)
-        return self.driver.get_cookies()
-
-    # TODO input and button
-    # Get input fields on the page
-    def get_input_fields(self, driver_object):
-        input_list = []
-        elements = driver_object.find_elements(By.TAG_NAME, "input")
-        for elem in elements:
-            input_list.append(elem)
-        return input_list
-
-    # Get button fields on the page
-    def get_button_fields(self, driver_object):
-        button_list = []
-        # TODO research how second parameter in the find_elements in selenium works(check if last 2 work)
-
-        #     self.driver.find_element(By.CSS_SELECTOR, "input[type = submit], button[type = submit]")
-        html_buttons = ["input[type = 'submit']", "button[type = 'submit']", "input.submit", "button.submit"]
-        elements = driver_object.find_elements(By.CSS_SELECTOR, html_buttons)
-        for elem in elements:
-            button_list.append(elem)
-        return button_list
+    # # Extract cookies from the page
+    # def get_cookies(self):
+    #     self.driver.get(self.__home_url)
+    #     return self.driver.get_cookies()
+    #
+    # # TODO input and button
+    # # Get input fields on the page
+    # def get_input_fields(self, driver_object):
+    #     input_list = []
+    #     elements = driver_object.find_elements(By.TAG_NAME, "input")
+    #     for elem in elements:
+    #         input_list.append(elem)
+    #     return input_list
+    #
+    # # Get button fields on the page
+    # def get_button_fields(self, driver_object):
+    #     button_list = []
+    #     # TODO research how second parameter in the find_elements in selenium works(check if last 2 work)
+    #
+    #     #     self.driver.find_element(By.CSS_SELECTOR, "input[type = submit], button[type = submit]")
+    #     html_buttons = ["input[type = 'submit']", "button[type = 'submit']", "input.submit", "button.submit"]
+    #     elements = driver_object.find_elements(By.CSS_SELECTOR, html_buttons)
+    #     for elem in elements:
+    #         button_list.append(elem)
+    #     return button_list
 
     """SECTION END"""
     """------------------------------------------------------------------------------------------------------"""

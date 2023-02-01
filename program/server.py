@@ -1,5 +1,10 @@
+import time
+
 import socketio
 
+from web_analysis import WebAnalysis
+from sql_analysis import SQLAnalysis
+from proxies import ProxyOperations
 
 sio = socketio.AsyncServer(async_mode="asgi")
 app = socketio.ASGIApp(sio, static_files={
@@ -10,39 +15,53 @@ app = socketio.ASGIApp(sio, static_files={
 @sio.event
 async def connect(sid, environ):
     print(sid + " connected")
-    sio.start_background_task(task, sid)
+    # sio.start_background_task(task, sid)
 
 
 @sio.event
 async def disconnect(sid):
     print(sid + " disconnected")
+    # TODO Write code to stop the execution of the analysis process
 
 
 @sio.event
-async def task(sid):
-    await sio.sleep(5)
-    # This is where the function mult was called from, so here you will receive a callback
-    # Accept it and pass to the function that will process it
-    # In our case func is called cb, and it prints the result of the callback
+async def ping(sid):
+    print("ping from" + sid)
 
-    # await sio.emit("mult", {'numbers': [3, 4]}, callback=cb)
-
-    # Instead of this function we can use
-    result = await sio.call("mult", {'numbers': [3, 4]}, to=sid)
-    print(result)
+"""------------------------------------------------------------------------------------------------------------------"""
 
 
-@sio.event
-async def sum(sid, data):
-    result = data['numbers'][0] + data['numbers'][1]
+@sio.on('server_processes')
+async def main(sid, data):
+    # TODO: remove all comments in functions that are used in option 2
+    web_object = WebAnalysis()
+    sqli_object = SQLAnalysis()
+    proxy_object = ProxyOperations()
+    type_analysis = data['type_of_analysis']
+    url = data['url']
+    level_complexity = data['level_of_complexity']
+    use_proxy = data['use_proxy']
 
-    # This is a way how to send data back from the server by creating a new event
-    # await sio.emit("sum_result", {"result": result}, to=sid)
+    # Option 1: ALL URLs
+    if type_analysis == 1:
+        web_object.set_home_url(url)
+        proxy_object.get_proxy_servers()
+        web_object.web_crawler(level_complexity)
 
-    # Second option is doing this on the server side
-    return result
+        # TODO: add user input for wanted pages
+
+        result = sqli_object.sql_check(use_proxy)
+        await sio.emit("response", {"result": result}, to=sid)
 
 
-@sio.event
-async def message(sid, msg):
-    print(msg)
+    # Option 2: SINGLE URL
+    else:
+        time_start = time.time()
+        print("SERVER PT1")
+        web_object.set_home_url(url)
+        if use_proxy == "Y":
+            proxy_object.get_proxy_servers()
+        result = sqli_object.sql_check(use_proxy)
+        await sio.emit("response", {"result": result}, to=sid)
+        time_finish = time.time()
+        print(f"Processing time: {time_finish - time_start}")
