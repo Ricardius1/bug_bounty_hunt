@@ -1,13 +1,10 @@
-import constants as const
 import random
-import web_analysis as web_object
+import threading
+import requests
+from bs4 import BeautifulSoup
 
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.proxy import Proxy, ProxyType
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
+import constants as const
+
 
 """========================================================================================================="""
 """========================================================================================================="""
@@ -16,68 +13,107 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 
 class ProxyOperations:
+    # Declaration of variables outside the constructor because they are not dependent on the object
     proxies_http = []
     proxies_https = []
-
-    def __init__(self):
-
-        self.__options = Options()
-        self.__options.add_argument("--headless")
-        self.__options.add_argument("--window-size=1920x1080")
-        self.__options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 13_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36")
-        self.__capabilities = webdriver.DesiredCapabilities.CHROME
-        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=self.__options,
-                                       desired_capabilities=self.__capabilities)
 
     """======================================================================================================"""
     """PROXY SERVERS SETTERS AND GETTERS"""
 
-    # Get proxy list through API
+    # Get proxy server lists through API and a website
     def get_proxy_servers(self):
+        threads = []
         # Get proxies through API
-        self.driver.get(const.PROXY1)
-        elements = self.driver.find_element(By.TAG_NAME, "pre").text
-        for elem in elements.splitlines():
-            ProxyOperations.proxies_http.append(f"http://{elem}")
+        # response stores a proxy list
+        response = requests.get(const.PROXY1)
+        # Process of checking proxy servers whether they are working because this program uses free proxies
+        # and this is a common problem
+        for url in response.text.splitlines():
+            # Threading to speed up the process
+            thread = threading.Thread(target=self.__check_http, args=(url,))
+            thread.start()
+            threads.append(thread)
 
-        # Get proxies through webscraping
-        self.driver.get(const.PROXY2)
-        elements = self.driver.find_elements(By.TAG_NAME, "tr")
-        for row in elements[1:]:
-            arguments = row.text.split(" ")
-            if len(arguments) == 10:
+        # Terminating threads
+        for t in threads:
+            t.join()
+        threads.clear()
+
+        # Get proxies from a website
+        response = requests.get(const.PROXY2)
+        # This time contents have to be extracted from the website manually
+        soup = BeautifulSoup(response.text, 'html.parser')
+        tr_elements = soup.find_all('tr')
+
+        for row in tr_elements[1:]:
+            # Finding all records in the list and extracting them
+            td_elements = row.find_all('td')
+            arguments = [td.text for td in td_elements]
+
+            # Extracting only the useful parts from the list
+            if len(arguments) == 8:
+                url = f"http://{arguments[0]}:{arguments[1]}"
+                # Checking whether proxy server is working
                 if arguments[3] in const.COUNTRIES and arguments[6] == "yes":
-                    ProxyOperations.proxies_https.append(f"http://{arguments[0]}:{arguments[1]}")
-            else:
-                if f"{arguments[3]} {arguments[4]}" in const.COUNTRIES and arguments[6] == "yes":
-                    ProxyOperations.proxies_https.append(f"http://{arguments[0]}:{arguments[1]}")
-        print("SERVER PT3")
-        print(ProxyOperations.proxies_https)
-        self.driver.close()
+                    # Starting threads that checks https proxy servers
+                    thread = threading.Thread(target=self.__check_https, args=(url,))
+                    thread.start()
+                    threads.append(thread)
 
-    # Set a proxy program
-    def switch_proxy_selenium(self):
-        proxy = Proxy()
-        proxy_http = random.choice(ProxyOperations.proxies_http)
-        proxy_https = random.choice(ProxyOperations.proxies_https)
-        proxy.proxy_type = ProxyType.MANUAL
-        proxy.http_proxy = proxy_http
-        proxy.ssl_proxy = proxy_https
-        proxy.add_to_capabilities(self.__capabilities)
-        web_object.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),
-                                             options=self.__options, desired_capabilities=self.__capabilities)
+                elif arguments[3] in const.COUNTRIES and arguments[6] == "no":
+                    # Starting threads that checks http proxy servers
+                    thread = threading.Thread(target=self.__check_http, args=(url,))
+                    thread.start()
+                    threads.append(thread)
 
-    def switch_proxy_requests(self):
-        proxy_http = random.choice(ProxyOperations.proxies_http)
-        proxy_https = random.choice(ProxyOperations.proxies_https)
-        proxy = {
-            "http": proxy_http,
-            "https": proxy_https
-                }
-        return proxy
+        # Stop all finished threads
+        for t in threads:
+            t.join()
+
+    # Set a proxy server for requests library
+    def switch_proxy(self):
+        proxy = {}
+        try:
+            # Use random proxies
+            proxy_http = random.choice(ProxyOperations.proxies_http)
+            proxy["http"] = proxy_http
+            proxy_https = random.choice(ProxyOperations.proxies_https)
+            proxy["https"] = proxy_https
+
+            return proxy
+        # Sometimes list of https proxies is empty because there are none available(working ones)
+        # Therefore sometimes you can use http proxy to access https website
+        except IndexError:
+            # Use same proxy both for http and https connections
+            proxy["https"] = proxy["http"]
+            return proxy
 
     """SECTION END"""
-    """------------------------------------------------------------------------------------------------------"""
+    """-----------------------------------------------------------------------------------------------------"""
+
+    """======================================================================================================"""
+    """Check whether proxy is working or not"""
+
+    # Check status codes of http proxy servers and add them to http proxy list if they are working
+    def __check_http(self, url):
+        try:
+            res = requests.get(url, timeout=7)
+            if res.status_code in const.STATUS_CODE_RANGE:
+                ProxyOperations.proxies_http.append(url)
+        except:
+            pass
+
+    # Check status codes of https proxy servers and add them to https proxy list if they are working
+    def __check_https(self, url):
+        try:
+            res = requests.get(url, timeout=7)
+            if res.status_code in const.STATUS_CODE_RANGE:
+                ProxyOperations.proxies_https.append(url)
+        except:
+            pass
+
+    """SECTION END"""
+    """-----------------------------------------------------------------------------------------------------"""
 
 
 """========================================================================================================="""

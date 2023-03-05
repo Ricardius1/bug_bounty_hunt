@@ -1,5 +1,3 @@
-chromedriver_location = "/usr/local/bin/chromedriver"
-
 """proxies.py"""
 
 COUNTRIES = {"United States", "Germany", "United Kingdom", "France", "Italy", "Spain", "Ukraine", "Poland",
@@ -19,7 +17,7 @@ USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36"
 ]
 
-sql_payload_wordlist = "../program/wordlists/sql_payloads/Intruder/detect/Generic_TimeBased.txt"
+SQL_PAYLOAD_WORDLIST = "../program/wordlists/Generic_TimeBased.txt"
 
 STATUS_CODE_RANGE = range(200, 400)
 NUM_MEAN = 5
@@ -29,21 +27,3 @@ VERY_HIGH_PROB = 0.95
 HIGH_PROB = 0.85
 MEDIUM_PROB = 0.7
 LOW_PROB = 0.5
-
-"""server.py"""
-
-
-
-"""extra_functions.py"""
-
-FONT_BLACK = "30"
-FONT_RED = "31"
-FONT_GREEN = "32"
-FONT_YELLOW = "33"
-FONT_BLUE = "34"
-FONT_MAGENTA = "35"
-FONT_CYAN = "36"
-FONT_WHITE = "37"
-FONT_DEFAULT = "39"
-
-# If you want to add background take 40 - black 41 - red

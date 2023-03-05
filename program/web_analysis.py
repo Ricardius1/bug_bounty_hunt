@@ -1,11 +1,12 @@
-import random
+from bs4 import BeautifulSoup
+import requests
+import threading
+import warnings
+
+from urllib3.exceptions import InsecureRequestWarning
+
 from proxies import ProxyOperations
 
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 
 """========================================================================================================="""
 """========================================================================================================="""
@@ -14,42 +15,37 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 
 class WebAnalysis:
-    # TODO: remove WebAnalysis.links because they are not being used in the latest version of the program
+    # Declaration of variables outside the constructor because they are not dependent on the object
     links = []
     links_w_queries = []
 
-    # Constructor with input properties + initialisation of a web driver
+    # Constructor with input properties
     def __init__(self):
         self.__home_url = ""
         self.__domain = ""
-        self.proxies = []
+        self.__proxy = {}
         self.proxy_object = ProxyOperations()
-
-        # Assigning options to the webdriver
-        self.__options = Options()
-        self.__options.add_argument("--headless")
-        self.__options.add_argument("--window-size=1920x1080")
-        self.__options.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 13_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36")
-        self.__capabilities = webdriver.DesiredCapabilities.CHROME
-        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=self.__options,
-                                       desired_capabilities=self.__capabilities)
-
+        # Statement to ignore all requests sent without verification
+        warnings.simplefilter("ignore", InsecureRequestWarning)
     """======================================================================================================"""
     """SETTING THE USED DATA"""
 
-    # Set the home url and the domain of the website
+    # Set the home url
     def set_home_url(self, home_url):
         self.__home_url = home_url
+        WebAnalysis.links.append(self.__home_url)
 
+    # Set the home url that has a query
+    def set_query_url(self, home_url):
+        self.__home_url = home_url
+        WebAnalysis.links_w_queries.append(home_url)
+
+    # Set home domain
+    def set_domain(self):
         if self.__home_url[-1] != "/":
             self.__home_url += "/"
-        WebAnalysis.links_w_queries.append(self.__home_url)
         slashes_list = [i for i, ltr in enumerate(self.__home_url) if ltr == "/"]
-        self.__domain = self.__home_url[slashes_list[1] + 1:slashes_list[2]]
-
-    def set_query_url(self, home_url):
-        WebAnalysis.links_w_queries.append(home_url)
-        print("SERVER PT2")
+        self.__domain = self.__home_url[:slashes_list[2]]
 
     """SECTION END"""
     """------------------------------------------------------------------------------------------------------"""
@@ -57,31 +53,41 @@ class WebAnalysis:
     """======================================================================================================"""
     """FINDING URLS ON THE WEBSITE"""
 
-    def find_links(self, link):
-        self.driver.get(link)
-        # Looks for all link tags(<a>) on a page
-        elements = self.driver.find_elements(By.TAG_NAME, 'a')
-        for elem in elements:
-            # Exports href attribute from a link tag
-            href = elem.get_attribute('href')
-            # Checks whether there is a link, if it is not a local link, if it's on the same domain or subdomain
-            if href is not None and "#" not in href and self.__check_domain(href) is True:
-                if href[-1] != "/":
-                    href += "/"
-                # Looks for links with attributes and adds them to the lists
-                if "?" in href:
-                    WebAnalysis.links_w_queries.append(href)
-                else:
-                    WebAnalysis.links.append(href)
-        self.driver.close()
+    # Find URLs on the website
+    def __find_links(self, link, use_proxy):
+        try:
+            if use_proxy == "Y":
+                # Get request object of the web page
+                page = requests.get(link, proxies=self.__proxy, verify=False)
+            else:
+                page = requests.get(link)
+            soup = BeautifulSoup(page.content, "html.parser")
+
+            # Extraction of all URLs from the page
+            for link in soup.find_all("a"):
+                href = link.get("href")
+                # Checks whether there is a link, if it is not a local link, if it's on the same domain or subdomain
+                if href is not None and "#" not in href:
+                    # Concatenating domain to the url because some websites have relative URLs(/path/file)
+                    if self.__domain not in href:
+                        href = self.__domain + href
+                    if href[-1] != "/":
+                        href += "/"
+                    # Looks for links with queries and adds them to according lists
+                    if "?" in href:
+                        WebAnalysis.links_w_queries.append(href)
+                    else:
+                        WebAnalysis.links.append(href)
+        except requests.exceptions.ConnectionError:
+            # TODO: check this part of the code
+            pass
 
     # Checks if pages are from this domain
     def __check_domain(self, href):
+        # Using .find() because if stops as soon as finds first occurrence
         index = href.find(self.__domain)
         if href[index-1] == "/" or href[index-1] == ".":
             return True
-        elif index == -1:
-            return False
         return False
 
     """SECTION END"""
@@ -90,16 +96,18 @@ class WebAnalysis:
     """======================================================================================================"""
     """SORTING OF THE URLS AND GETTING QUERY KEYS"""
 
-    # Delete duplicates in the links list
-    def sort_links(self):
+    # Removes duplicates from the links list
+    def __sort_links(self):
         # Set and list for storing repeated links
         rep_path = set()
         rep_urls = []
         # Iterate over a list of links
         for index, link in enumerate(WebAnalysis.links):
-            # Find and extract indices of slashes in the list
+            # Find and extract indices of slash signs in the list
             slashes_list = [i for i, ltr in enumerate(link) if ltr == "/"]
             num_slashes = len(slashes_list)
+            # Checking only URLs that have more than 4 slashes because there the number of URLs with potential
+            # queries is higher there. URLs that have 3 slashes are usually core pages that do not store many queries
             if num_slashes >= 4:
                 url_path = link[slashes_list[2] + 1:slashes_list[-2]]
                 if url_path in rep_path:
@@ -107,12 +115,14 @@ class WebAnalysis:
                 else:
                     rep_path.add(url_path)
 
-        # Popping links from the links list from the end
+        # Popping links from the links list from the end trying not to affect the order
         for i in reversed(rep_urls):
             WebAnalysis.links.pop(i)
 
-    def sort_links_w_queries(self):
-        attr_list = self.__get_query_keys_iter()
+    # Removes duplicates from the links_w_queries list
+    # TODO: comment this method
+    def __sort_links_w_queries(self):
+        attr_list = self.__get_query_keys()
         result = set()
         for index, attr in enumerate(attr_list[:-2]):
             curr_set_len = len(attr)
@@ -128,128 +138,67 @@ class WebAnalysis:
         for i in reversed(list(result)):
             WebAnalysis.links_w_queries.pop(i)
 
-    # TODO works twice faster than v1 but in case [{1,2}, {1,2,3}] leaves both elements present
-    def sort_links_w_queries_v2(self):
-        list_attr = self.__get_query_keys_iter()
-        # list_attr = sorted(unsorted_list_attr, key=len)
-        big_set = set()
-        rep_urls = []
-        # Iterate over a list of links
-        for index, attr in enumerate(list_attr):
-            curr_set_len = len(attr)
-            # Check if current link queries already in the big_set and if True delete the link
-            if len(attr.intersection(big_set)) == curr_set_len:
-                rep_urls.append(index)
-            else:
-                for i in attr:
-                    big_set.add(i)
-
-        for i in reversed(list(rep_urls)):
-            WebAnalysis.links_w_queries.pop(i)
-
     # Extracts query keys for the links with attributes
-    def __get_query_keys_iter(self):
+    def __get_query_keys(self):
         params = []
         for url in WebAnalysis.links_w_queries:
+            # Splitting URL in 2 parts: URL and query part
             _, query = url.split("?")
+            # Splitting example1=1&example2=2 into example1=1, example2=2
             fields = query.split("&")
+            # TODO: finish explaining after this point
             inner_params = set()
 
             for field in fields:
+                # Splitting example1=1 into example1, 1 and assigning for use only example1
                 key, _ = field.split("=")
                 inner_params.add(key)
             params.append(inner_params)
         return params
-
-    # Extracts query keys from one input link
-    def get_query_keys(self, url):
-        params = []
-        _, query = url.split("?")
-        fields = query.split("&")
-        inner_params = set()
-
-        for field in fields:
-            key, _ = field.split("=")
-            inner_params.add(key)
-        params.append(inner_params)
-        return params
-
-    def get_signs_list(self, url):
-        sign_list = [i for i, ltr in enumerate(url) if ltr in ["=", "&", "?"]]
-        return sign_list
-
-    def get_and_list(self, url):
-        and_list = [i for i, ltr in enumerate(url) if ltr == "&"]
-        and_list.append(-1)
-        return and_list
-
-    """SECTION END"""
-    """------------------------------------------------------------------------------------------------------"""
-
-    """======================================================================================================"""
-    """Creating payloads for different injections"""
-
-    # https://example.com/page?attr1=value1&attr2=value2
-
-    # Finds indices for value in the key:value pair
-    def argument_indices_extractor(self, url):
-        index = random.choice(self.get_and_list(url))
-        return index
-
-    # Creates payloads by using index of the random value in the key:value pair
-    def payload_create(self, url, payload):
-        index = self.argument_indices_extractor(url)
-        if index == -1:
-            return f"{url[:-1]}{payload}"
-        return f'{url[:index]}{payload}{url[index:]}'
 
     """SECTION END"""
     """------------------------------------------------------------------------------------------------------"""
 
     """======================================================================================================"""
     """CRAWLING AND GETTING BUTTONS AND INPUT FIELDS """
+
     # Main function of WebAnalysis
-    def web_crawler(self, level):
-        self.links.append(self.__home_url)
+    def web_crawler(self, level, use_proxy):
+        thread_list = []
         start_num = 0
         stop_num = 1
-        self.proxy_object.get_proxy_servers()
+        # Iterating deep in the website by the level the user has specified
         for i in range(level):
-            # List of all urls
+            # Webscraping links from all available URLs in links and links_w_queries
             all_links = (WebAnalysis.links + WebAnalysis.links_w_queries)
-            for link in all_links[start_num:stop_num]:
-                self.proxy_object.switch_proxy_selenium()
-                self.find_links(link)
-            self.sort_links_w_queries()
-            self.sort_links()
+            # Option if user selected to use proxy
+            if use_proxy == "Y":
+                # Iterating over unchecked URLs
+                for link in all_links[start_num:stop_num]:
+                    # Switching proxy server for every request to avoid detection or prevention of blocked IP
+                    self.__proxy = self.proxy_object.switch_proxy()
+                    # Using threading module to speed up the process
+                    thread = threading.Thread(target=self.__find_links, args=(link, use_proxy))
+                    thread.start()
+                    thread_list.append(thread)
+            else:
+                # Option if user selected not to use proxy
+                for link in all_links[start_num:stop_num]:
+                    # Using threading module to speed up the process
+                    thread = threading.Thread(target=self.__find_links, args=(link, use_proxy))
+                    thread.start()
+                    thread_list.append(thread)
+
+            # Terminating threads
+            for t in thread_list:
+                t.join()
+
+            # Calling sorting functions to remove useless URLs
+            self.__sort_links_w_queries()
+            self.__sort_links()
+
             start_num = stop_num
             stop_num = len(self.links)
-
-    # # Extract cookies from the page
-    # def get_cookies(self):
-    #     self.driver.get(self.__home_url)
-    #     return self.driver.get_cookies()
-    #
-    # # TODO input and button
-    # # Get input fields on the page
-    # def get_input_fields(self, driver_object):
-    #     input_list = []
-    #     elements = driver_object.find_elements(By.TAG_NAME, "input")
-    #     for elem in elements:
-    #         input_list.append(elem)
-    #     return input_list
-    #
-    # # Get button fields on the page
-    # def get_button_fields(self, driver_object):
-    #     button_list = []
-    #     # TODO research how second parameter in the find_elements in selenium works(check if last 2 work)
-    #
-    #     #     self.driver.find_element(By.CSS_SELECTOR, "input[type = submit], button[type = submit]")
-    #     html_buttons = ["input[type = 'submit']", "button[type = 'submit']", "input.submit", "button.submit"]
-    #     elements = driver_object.find_elements(By.CSS_SELECTOR, html_buttons)
-    #     for elem in elements:
-    #         button_list.append(elem)
-    #     return button_list
 
     """SECTION END"""
     """------------------------------------------------------------------------------------------------------"""
@@ -257,6 +206,3 @@ class WebAnalysis:
     """======================================================================================================"""
     """======================================================================================================"""
     """======================================================================================================"""
-
-
-
