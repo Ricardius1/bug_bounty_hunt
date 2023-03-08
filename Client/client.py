@@ -16,7 +16,7 @@ sio = socketio.AsyncClient()
 global userID
 LATENCY = 0.5
 
-# Function that creates connection between server and client
+# Function that creates connection between server and Client
 @sio.event
 async def connect():
     print("Connected\n")
@@ -28,7 +28,7 @@ async def connect_error():
     print("Connection Error")
 
 
-# # Function that disconnects client from the server
+# # Function that disconnects Client from the server
 @sio.event
 async def disconnect():
     print("Disconnected")
@@ -40,9 +40,9 @@ async def disconnect():
 
 @sio.event
 async def log_in():
-    login = input("Login: ")
+    username = input("Username: ")
     password = input("Password: ")
-    await sio.emit("login_check", {"login": login, "password": password}, callback=set_userID)
+    await sio.emit("login_check", {"login": username, "password": password}, callback=set_userID)
     await asyncio.sleep(LATENCY)
     if type(userID) is not int:
         print("User Not Found")
@@ -59,11 +59,11 @@ async def log_in():
 @sio.event
 async def register():
     while True:
-        login = input("Login: ")
+        username = input("Username: ")
         password = input("Password: ")
         password_rep = input("Repeat Password: ")
         if password == password_rep:
-            await sio.emit("register_user", {"login": login, "password": password})
+            await sio.emit("register_user", {"login": username, "password": password})
             break
         else:
             print("Different passwords")
@@ -73,12 +73,13 @@ async def set_userID(user_num):
     global userID
     userID = user_num
 
+
 async def display_results(data):
     print(data)
 
 
 """======================================================================================================"""
-"""Client-side functions in the client-server communication"""
+"""Client-side functions in the Client-Server communication"""
 
 
 async def login_register():
@@ -127,12 +128,12 @@ async def program_interaction():
             print("Please give a number")
 
 
-# Asking user for inputs needed for program to start working
+# Asking user for inputs needed for Server to start working
 @sio.event
 async def start_inputs():
 
-    # Ask for program type
-    print("\nChoose which type of program do you want to run: \n1: All URLs\n2: Single URL")
+    # Ask for Server type
+    print("\nChoose which type of Server do you want to run: \n1: All URLs\n2: Single URL")
     while True:
         try:
             type_of_analysis = int(input("Choose(1-2): "))
@@ -142,7 +143,6 @@ async def start_inputs():
                 print("Please give correct value")
         except ValueError:
             print("Please give a number")
-
     # Ask for start url
     url = ""
     while True:
@@ -216,20 +216,19 @@ async def middle_input(data):
 @sio.event
 async def program_finish(data):
     scan_list = data["result"]
-    print(scan_list)
-    if scan_list is not []:
+    if len(scan_list) != 0:
         for res in data["result"]:
             scan_res = res[0]
             payload_link = res[1]
-            if res[0] == 5:
+            if scan_res == 5:
                 print(f"Very high probability in {payload_link}")
-            elif res[0] == 4:
+            elif scan_res == 4:
                 print(f"High probability in {payload_link}")
-            elif res[0] == 3:
+            elif scan_res == 3:
                 print(f"Medium probability in {payload_link}")
-            elif res[0] == 2:
+            elif scan_res == 2:
                 print(f"Low probability in {payload_link}")
-    elif scan_list is []:
+    else:
         print("SQL Injection wasn't found")
     await sio.emit("new_userscan", {})
     await program_interaction()
@@ -240,23 +239,23 @@ async def program_finish(data):
 """------------------------------------------------------------------------------------------------------"""
 
 
-# Function that runs the client side functions
+# Function that runs the Client side functions
 async def main():
     try:
         await sio.connect("http://localhost:8000", wait_timeout=4)
     except:
         print("Connection error, try again later")
-        # TODO: use some method here to prevent from unresolved client session message
+        # TODO: use some method here to prevent from unresolved Client session message
         exit()
     await login_register()
     await program_interaction()
     await sio.wait()
 
 
-# Start client
+# Start Client
 if __name__ == "__main__":
     asyncio.run(main())
-# TODO: find out why sometimes thee program automatically disconnects from the server.
+# TODO: find out why sometimes thee Server automatically disconnects from the server.
 
 """========================================================================================================="""
 """========================================================================================================="""

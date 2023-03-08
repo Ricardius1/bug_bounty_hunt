@@ -15,12 +15,12 @@ from db_class import DBControl
 """======================================================================================================"""
 """Instantiating class objects and defining basic connection functions"""
 
-# To start a server run a command in program folder: uvicorn server:app
+# To start a server run a command in Server folder: uvicorn server:app
 
 # Instantiation of a server object
 sio = socketio.AsyncServer(async_mode="asgi")
 app = socketio.ASGIApp(sio, static_files={
-    "/": "../client/"
+    "/": "../Client/"
 })
 
 # Instantiation of all main classes
@@ -30,13 +30,13 @@ proxy_object = ProxyOperations()
 db_object = DBControl()
 
 
-# Built-in method that connects client to a server
+# Built-in method that connects Client to a server
 @sio.event
 async def connect(sid, environ):
     print(sid + " connected")
 
 
-# Built-in method that disconnects client to a server
+# Built-in method that disconnects Client to a server
 @sio.event
 async def disconnect(sid):
     print(sid + " disconnected")
@@ -74,11 +74,11 @@ async def single_result(sid, data):
 
 
 """======================================================================================================"""
-"""Server-side functions in the client-server communication"""
+"""Server-side functions in the Client-server communication"""
 
 
-# Method that is responsible for the first stage of the program
-# It does: 1. Accepts user inputs 2. Processes them and runs the program
+# Method that is responsible for the first stage of the Server
+# It does: 1. Accepts user inputs 2. Processes them and runs the Server
 @sio.on('server_processes')
 async def main(sid, data):
 

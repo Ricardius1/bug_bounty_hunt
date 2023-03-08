@@ -120,6 +120,7 @@ class SQLAnalysis:
         for t in thread_list:
             t.join()
 
+        # TODO: fix the issue that happens here
         print(self.__request_obj_time)
         for value in self.__request_obj_time:
             print(type(value))
@@ -127,7 +128,6 @@ class SQLAnalysis:
         time_mean = times_sum / const.NUM_MEAN
         self.__request_obj_time.clear()
         return time_mean
-
 
     # Stage2: sending requests with payloads onto the website
     def __sql_check_stage2(self, link, time_mean, use_proxy):

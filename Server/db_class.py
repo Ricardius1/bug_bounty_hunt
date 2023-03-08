@@ -15,9 +15,6 @@ class DBControl:
     def __encode_passwd(self, passwd):
         return base64.b64encode(passwd.encode()).decode()
 
-    def execute_query(self, query):
-        self.cursor.execute(query)
-
     # Adds user to the users table
     def add_user(self, login, passwd):
         password = self.__encode_passwd(passwd)
@@ -55,16 +52,3 @@ class DBControl:
         self.cursor.execute(f"SELECT result FROM scans WHERE payloadURL = '{url}'")
         return self.cursor.fetchall()
 
-if __name__ == "__main__":
-    d = DBControl()
-    # print(d.cursor.execute("ALTER TABLE scans RENAME COLUMN startURL TO payloadURL"))
-    # print(d.cursor.fetchall())
-    # d.add_scan(0, [[2, "test2"], [3, "test3"]])
-    d.cursor.execute("DELETE FROM scans")
-    # d.cursor.execute("SELECT * FROM userScan")
-    d.conn.commit()
-    # print(d.check_user("admin", "secret"))
-    # print(d.get_user_scan(0))
-    # print(d.get_result_scan("test2"))
-    # print(d.cursor.fetchall())
-    d.conn.close()

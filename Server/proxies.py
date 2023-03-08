@@ -26,7 +26,7 @@ class ProxyOperations:
         # Get proxies through API
         # response stores a proxy list
         response = requests.get(const.PROXY1)
-        # Process of checking proxy servers whether they are working because this program uses free proxies
+        # Process of checking proxy servers whether they are working because this Server uses free proxies
         # and this is a common problem
         for url in response.text.splitlines():
             # Threading to speed up the process
