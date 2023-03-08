@@ -17,7 +17,7 @@ USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36"
 ]
 
-SQL_PAYLOAD_WORDLIST = "../Server/wordlists/Generic_TimeBased.txt"
+SQL_PAYLOAD_WORDLIST = "../Server/wordlists/SQLI_TimeBased.txt"
 
 STATUS_CODE_RANGE = range(200, 400)
 NUM_MEAN = 5
