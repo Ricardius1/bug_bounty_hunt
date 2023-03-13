@@ -23,6 +23,7 @@ class WebAnalysis:
     def __init__(self):
         self.__home_url = ""
         self.__domain = ""
+        self.__protocol = ""
         self.__proxy = {}
         self.proxy_object = ProxyOperations()
         # Statement to ignore all requests sent without verification
@@ -45,7 +46,8 @@ class WebAnalysis:
         if self.__home_url[-1] != "/":
             self.__home_url += "/"
         slashes_list = [i for i, ltr in enumerate(self.__home_url) if ltr == "/"]
-        self.__domain = self.__home_url[:slashes_list[2]]
+        self.__domain = self.__home_url[slashes_list[1]+1:slashes_list[2]]
+        self.__protocol = self.__home_url[:slashes_list[1] + 1]
 
     """SECTION END"""
     """------------------------------------------------------------------------------------------------------"""
@@ -64,13 +66,13 @@ class WebAnalysis:
             soup = BeautifulSoup(page.content, "html.parser")
 
             # Extraction of all URLs from the page
-            for link in soup.find_all("a"):
-                href = link.get("href")
+            for href in soup.find_all("a"):
+                href = href.get("href")
                 # Checks whether there is a link, if it is not a local link, if it's on the same domain or subdomain
                 if href is not None and "#" not in href:
                     # Concatenating domain to the url because some websites have relative URLs(/path/file)
-                    if self.__domain not in href:
-                        href = self.__domain + href
+                    if self.__domain not in href and "http" not in href:
+                        href = self.__protocol + self.__domain + href
                     if href[-1] != "/":
                         href += "/"
                     # Looks for links with queries and adds them to according lists
@@ -79,7 +81,6 @@ class WebAnalysis:
                     else:
                         WebAnalysis.links.append(href)
         except requests.exceptions.ConnectionError:
-            # TODO: check this part of the code
             pass
 
     # Checks if pages are from this domain
@@ -108,7 +109,10 @@ class WebAnalysis:
             num_slashes = len(slashes_list)
             # Checking only URLs that have more than 4 slashes because there the number of URLs with potential
             # queries is higher there. URLs that have 3 slashes are usually core pages that do not store many queries
+            # and they are more likely to get protected by anti-SQLi software
             if num_slashes >= 4:
+                # Comparing URL path after 3rd slash till second from the end because the last part of the path in page
+                # and links to page are more likely to be unique. Therefore, there would be useless scans
                 url_path = link[slashes_list[2] + 1:slashes_list[-2]]
                 if url_path in rep_path:
                     rep_urls.append(index)
@@ -120,21 +124,30 @@ class WebAnalysis:
             WebAnalysis.links.pop(i)
 
     # Removes duplicates from the links_w_queries list
-    # TODO: comment this method
     def __sort_links_w_queries(self):
+        # Extract all keys from queries
         attr_list = self.__get_query_keys()
+        # create an empty set to store indices of repeated URLs
         result = set()
+        # For loop to set the element for comparison
         for index, attr in enumerate(attr_list[:-2]):
+            # Get number of values in the current set
             curr_set_len = len(attr)
+            # Iteration over elements after the element in the first loop
             for other_index, inner_attr in enumerate(attr_list[index:]):
                 if other_index != 0:
+                    # Find the amount of queries in the inner element
                     inner_set_len = len(inner_attr)
+                    # Find the amount of similar queries between the inner element and the outer one
                     repeated_attr = len(attr.intersection(inner_attr))
+                    # The amounts match that means that the inner index gets appended
                     if repeated_attr == inner_set_len:
                         result.add(index + other_index)
+                    # The amounts match that means that the outer element gets appended
                     elif repeated_attr == curr_set_len:
                         result.add(index)
 
+        # Popping the indices of URLs that have repetitive URLs
         for i in reversed(list(result)):
             WebAnalysis.links_w_queries.pop(i)
 
@@ -146,7 +159,8 @@ class WebAnalysis:
             _, query = url.split("?")
             # Splitting example1=1&example2=2 into example1=1, example2=2
             fields = query.split("&")
-            # TODO: finish explaining after this point
+            # Use set here because this will create a list of sets in the future and set methods like intersection could
+            # be used
             inner_params = set()
 
             for field in fields:

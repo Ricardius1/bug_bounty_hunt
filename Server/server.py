@@ -28,6 +28,7 @@ web_object = WebAnalysis()
 sqli_object = SQLAnalysis()
 proxy_object = ProxyOperations()
 db_object = DBControl()
+global userID
 
 
 # Built-in method that connects Client to a server
@@ -41,11 +42,15 @@ async def connect(sid, environ):
 async def disconnect(sid):
     print(sid + " disconnected")
 
-
 """SECTION END"""
 """------------------------------------------------------------------------------------------------------"""
 
+"""SECTION END"""
+"""======================================================================================================"""
+"""Database event calls to the database"""
 
+
+# Checking whether user has an account
 @sio.event
 async def login_check(sid, data):
     user_id = db_object.check_user(data["login"], data["password"])
@@ -54,24 +59,26 @@ async def login_check(sid, data):
     return False
 
 
+# Registering the user
 @sio.event
 async def register_user(sid, data):
     db_object.add_user(data["login"], data["password"])
 
 
+# Returning all scans made by asking user to the
 @sio.event
 async def message_user_scans(sid, data):
-    print("Message received")
     result = db_object.get_user_scan(data["userID"])
-    print(result)
     return result
 
 
+# Checking the result of the injection
 @sio.event
 async def single_result(sid, data):
-    result = db_object.get_result_scan(data["URL"])
-    return result
+    return db_object.get_result_scan(data["URL"])
 
+"""SECTION END"""
+"""------------------------------------------------------------------------------------------------------"""
 
 """======================================================================================================"""
 """Server-side functions in the Client-server communication"""
@@ -94,14 +101,15 @@ async def main(sid, data):
 
     # Option 1: ALL URLs
     if type_analysis == 1:
+        # Setting used data
         web_object.set_home_url(url)
         web_object.set_domain()
         # Using proxy or not
         if use_proxy == "Y":
             proxy_object.get_proxy_servers()
-            # TODO add more proxy suppliers because sometimes there are no https servers
+        # Collect all the links from the website
         web_object.web_crawler(level_complexity, use_proxy)
-
+        # Sending a request to the client asking for inputs
         await sio.emit("middle_input", {
                         "links": web_object.links_w_queries,
                         "use_proxy": use_proxy,
@@ -110,30 +118,61 @@ async def main(sid, data):
 
     # Option 2: SINGLE URL
     else:
+        # Setting used data
         web_object.set_query_url(url)
         web_object.set_domain()
+        # Using proxy or not
         if use_proxy == "Y":
             proxy_object.get_proxy_servers()
+        # Performing the check for SQL injection
         result = sqli_object.sql_check(use_proxy)
+        # Clearing lists to prevent use of needless data
+        web_object.links_w_queries.clear()
+        web_object.links.clear()
+        # Storing the data in a new record in a database
         db_object.add_scan(userID, result)
+        # Send data to the client
         await sio.emit("program_finish", {"result": result}, to=sid)
 
 
+# Callback function for option 1
 async def callback_middle_input(data, use_proxy, sid):
+    check_list = []
+    # data is a list containing indexes of links
+    # Enter if user did not type in "ENTER"
     if data[0] != '':
+        # Reverse the list
         for index in reversed(data):
+            # if there is - sign in the element it is a range, else it is a single value
             if "-" in index:
+                # Find the index of the dash
                 dash = index.index("-")
+                # Set the lower value for the range
                 lower_value = int(index[:dash])
-                upper_value = int(index[dash+1:])
+                # Set the upper value for the range
+                upper_value = int(index[dash + 1:])
+                # Extract values from the range and add them to the list of values to check
                 for i in reversed(range(lower_value, upper_value + 1)):
-                    WebAnalysis.links_w_queries.pop(i)
+                    check_list.append(int(i))
             else:
-                WebAnalysis.links_w_queries.pop(int(index))
-    result = sqli_object.sql_check(use_proxy)
-    db_object.add_scan(userID, result)
-    await sio.emit("program_finish", {"result": result}, to=sid)
+                check_list.append(int(index))
 
+        # Popping URLs that were not selected by the user from the links_w_queries
+        upper_value = check_list[0]
+        lower_value = check_list[-1] + 1
+        for i in reversed(range(lower_value, upper_value)):
+            if i not in check_list:
+                WebAnalysis.links_w_queries.pop(int(i))
+
+    # Call SQL injection scanning function
+    result = sqli_object.sql_check(use_proxy)
+    # Clear all the excessive data from the lists for further scans
+    web_object.links_w_queries.clear()
+    web_object.links.clear()
+    # Save records about scans in the table
+    db_object.add_scan(userID, result)
+    # Send result back to the user
+    await sio.emit("program_finish", {"result": result}, to=sid)
 
 
 """SECTION END"""
