@@ -218,7 +218,6 @@ class SQLAnalysis:
     """======================================================================================================"""
     """Detecting SQLi on the website"""
 
-    # 0 - Client or Server Error
     # 1 - Not found
     # 2 - Low probability
     # 3 - Medium probability

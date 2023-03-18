@@ -10,6 +10,7 @@ QUERY_NEW_USERSCAN = "INSERT INTO userScan (userID, scanID) VALUES(?, ?)"
 """========================================================================================================="""
 """Controlling all database operations"""
 
+
 class DBControl:
     def __init__(self):
         self.conn = sqlite3.connect("../database.db")

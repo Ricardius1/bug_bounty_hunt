@@ -55,13 +55,13 @@ class ProxyOperations:
                 url = f"http://{arguments[0]}:{arguments[1]}"
                 # Checking whether proxy server is working
                 if arguments[3] in const.COUNTRIES and arguments[6] == "yes":
-                    # Starting threads that checks https proxy servers
+                    # Starting threads that check https proxy servers
                     thread = threading.Thread(target=self.__check_https, args=(url,))
                     thread.start()
                     threads.append(thread)
 
                 elif arguments[3] in const.COUNTRIES and arguments[6] == "no":
-                    # Starting threads that checks http proxy servers
+                    # Starting threads that check http proxy servers
                     thread = threading.Thread(target=self.__check_http, args=(url,))
                     thread.start()
                     threads.append(thread)

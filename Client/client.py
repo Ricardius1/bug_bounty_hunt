@@ -165,7 +165,7 @@ async def program_interaction():
 async def start_inputs():
 
     # Ask for a scan type
-    print("\nChoose which type of Server do you want to run: \n1: All URLs\n2: Single URL")
+    print("\nChoose which type of scan do you want to run: \n1: All URLs\n2: Single URL")
     while True:
         try:
             type_of_analysis = int(input("Choose(1-2): "))
@@ -288,7 +288,6 @@ async def main():
         await sio.connect("http://localhost:8000", wait_timeout=4)
     except:
         print("Connection error, try again later")
-        # TODO: use some method here to prevent from unresolved Client session message
         exit()
     # Start the program by calling login or register function
     await login_register()
@@ -299,7 +298,6 @@ async def main():
 # Start Client
 if __name__ == "__main__":
     asyncio.run(main())
-# TODO: find out why sometimes thee Server automatically disconnects from the server.
 
 """========================================================================================================="""
 """========================================================================================================="""

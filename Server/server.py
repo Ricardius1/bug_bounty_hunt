@@ -53,7 +53,10 @@ async def disconnect(sid):
 # Checking whether user has an account
 @sio.event
 async def login_check(sid, data):
+    # Get the userID of the user by calling the function checking if user exists
     user_id = db_object.check_user(data["login"], data["password"])
+    # userID can be either int or None. Because of the specifics  on how the sqlite works I had to check
+    # this way
     if type(user_id) is int:
         return user_id
     return False
@@ -88,7 +91,7 @@ async def single_result(sid, data):
 # It does: 1. Accepts user inputs 2. Processes them and runs the Server
 @sio.on('server_processes')
 async def main(sid, data):
-
+    print(data)
     # Assigning user inputs
     type_analysis = data['type_of_analysis']
     url = data['url']
